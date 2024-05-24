@@ -1,0 +1,69 @@
+
+# ======== #
+# HybridCLR #
+# ======== #
+HybridCLRData/
+*/Assets/AddressableAssets/Dlls/Dlls/*
+*/Assets/AddressableAssets/Dlls/Dlls.meta
+
+# =============== #
+# Unity generated #
+# =============== #
+Temp/
+Library/
+UserSettings/
+Obj/
+Logs/
+UnityGenerated/
+Assets/AssetStoreTools*
+ServerData/
+AmplifyShaderEditor/
+AmplifyShaderEditor.meta
+Builds/
+
+
+
+# =============== #
+# Unity Test #
+# =============== #
+測試用(不會進版控)/
+
+# =============== #
+# Unity Build #
+# =============== #
+Build_Standalone/
+Build_Android/
+Build_WebGL/
+Build_IOS/
+
+
+
+
+# ===================================== #
+# Visual Studio / MonoDevelop generated #
+# ===================================== #
+ExportedObj/
+.vs/
+obj/
+*.svd
+*.userprefs
+*.csproj
+*.pidb
+*.suo
+*.sln
+*.user
+*.unityproj
+*.booproj
+
+
+
+# ============ #
+# OS generated #
+# ============ #
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

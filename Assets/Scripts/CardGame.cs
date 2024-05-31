@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEditor.iOS;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -12,6 +13,7 @@ public enum HandType {
     Straight,
     ThreeOfAKind,
     FullHouse,
+    FourOfAKind,
     StraightFlush,
 }
 public static class Extends {
@@ -64,14 +66,16 @@ public class Card {
     public override string ToString() {
         return $"{suit.ToStr()}{number}";
     }
+    public Sprite GetSprite() {
+        return Resources.Load<Sprite>(string.Format("PokerImgs/{0}", Idx));
+    }
 }
 public class CardGame : MonoBehaviour {
 
     [SerializeField] Text StartText;
     [SerializeField] GameObject StartGO;
     [SerializeField] GameObject PlayingGO;
-    [SerializeField] GameObject ResultGO;
-    [SerializeField] Text[] HandTexts;
+    [SerializeField] Image[] HandImgs;
     [SerializeField] Toggle[] HandToggles;
     [SerializeField] Text PlayrPT;
     [SerializeField] Text SwapCost;
@@ -80,11 +84,12 @@ public class CardGame : MonoBehaviour {
     [SerializeField] GameObject PoolCardParent;
     [SerializeField] GameObject CardPrefab;
     [SerializeField] GameObject CardPoolGO;
-
-    // 結果
-    [SerializeField] Text ResultRewardText;
-    [SerializeField] Text ResultHandTypeText;
-    [SerializeField] Text PlayAgainText;
+    [SerializeField] Animator AddPTTextAni;
+    [SerializeField] Text AddPTText;
+    [SerializeField] Button PlayAgainBtn;
+    [SerializeField] Button SwapBtn;
+    [SerializeField] Button ConfirmBtn;
+    [SerializeField] AudioSource MyAudioSource;
 
     [SerializeField] int DefaultPlayerPT = 100;
     [SerializeField] int GameCost = 10;
@@ -92,6 +97,8 @@ public class CardGame : MonoBehaviour {
     [SerializeField] int SwapCostAdd = 1;
 
 
+
+    bool firstGame = true;
 
     enum GameState {
         Start,
@@ -101,26 +108,32 @@ public class CardGame : MonoBehaviour {
 
     private void Start() {
         StartText.text = $"花費{GameCost}";
-        PlayAgainText.text = $"花費{GameCost}";
         playerPT = DefaultPlayerPT;
         GoState(GameState.Start);
+        InitDeck();
     }
     void GoState(GameState state) {
         switch (state) {
             case GameState.Start:
                 StartGO.SetActive(true);
                 PlayingGO.SetActive(false);
-                ResultGO.SetActive(false);
+                PlayAgainBtn.gameObject.SetActive(false);
+                SwapBtn.gameObject.SetActive(true);
+                ConfirmBtn.gameObject.SetActive(true);
                 break;
             case GameState.Playing:
                 StartGO.SetActive(false);
                 PlayingGO.SetActive(true);
-                ResultGO.SetActive(false);
+                PlayAgainBtn.gameObject.SetActive(false);
+                SwapBtn.gameObject.SetActive(true);
+                ConfirmBtn.gameObject.SetActive(true);
                 break;
             case GameState.End:
                 StartGO.SetActive(false);
-                PlayingGO.SetActive(false);
-                ResultGO.SetActive(true);
+                PlayingGO.SetActive(true);
+                PlayAgainBtn.gameObject.SetActive(true);
+                SwapBtn.gameObject.SetActive(false);
+                ConfirmBtn.gameObject.SetActive(false);
                 break;
         }
     }
@@ -146,10 +159,22 @@ public class CardGame : MonoBehaviour {
 
     public void OnConfirmClick() {
         int gainPT = CalculateReward();
-        ResultHandTypeText.text = $"牌型: {CurHandType.ToStr()}";
-        ResultRewardText.text = $"獎勵:{gainPT}";
-        playerPT += gainPT;
+        AddPlayerPT(gainPT);
         GoState(GameState.End);
+        RefreshBottomUI();
+        PlayRewardVoice();
+    }
+    void PlayRewardVoice() {
+        switch (CurHandType) {
+            case HandType.FourOfAKind:
+                MyAudioSource.clip = Resources.Load<AudioClip>("Audios/Annie/Annie Original R 4");
+                MyAudioSource.Play();
+                break;
+        }
+    }
+    public void OnPlayAgainClick() {
+        StartNewGame(); //開始新遊戲
+        GoState(GameState.Playing);
     }
     public void OnCheckCardPoolClick(bool _show) {
         CardPoolGO.SetActive(_show);
@@ -164,7 +189,8 @@ public class CardGame : MonoBehaviour {
 
     void RefreshHandsUI() {
         for (int i = 0; i < hand.Count; i++) {
-            HandTexts[i].text = hand[i].ToString();
+            HandImgs[i].sprite = hand[i].GetSprite();
+            HandToggles[i].SetIsOnWithoutNotify(false);
         }
     }
 
@@ -189,15 +215,26 @@ public class CardGame : MonoBehaviour {
 
 
     void StartNewGame() {
-        // 初始化牌池
-        InitDeck();
+
         ShuffleDeck();
         DrawInitialHand();
-        playerPT -= GameCost;
+        AddPlayerPT(-GameCost);
         swapCost = BaseSwapCost;
         swapCount = 0;
         RefreshHandsUI();
         RefreshBottomUI();
+    }
+
+    void AddPlayerPT(int _value) {
+        if (_value == 0) return;
+        playerPT += _value;
+        string aniTrigger = "add";
+        if (_value < 0) {
+            aniTrigger = "reduce";
+        }
+        AddPTTextAni.SetTrigger(aniTrigger);
+        if (_value > 0) AddPTText.text = "+" + _value.ToString();
+        else AddPTText.text = _value.ToString();
     }
 
     void InitDeck() {
@@ -211,36 +248,72 @@ public class CardGame : MonoBehaviour {
 
                 var go = Instantiate(CardPrefab, PoolCardParent.transform);
                 var cover = go.transform.Find("cover").GetComponent<Image>();
-                var text = go.transform.Find("Text").GetComponent<Text>();
-                text.text = newCard.ToString();
+                var img = go.transform.Find("Image").GetComponent<Image>();
+                go.transform.GetComponent<Toggle>().interactable = false;
+                img.sprite = newCard.GetSprite();
+                //var text = go.transform.Find("Text").GetComponent<Text>();
+                //text.text = newCard.ToString();
                 poolCardImgs.Add(cover);
             }
         }
     }
-
+    void ResetCardPool() {
+        if (cardPool == null) return;
+        foreach (var key in cardPool.Keys.ToList()) {
+            cardPool[key] = true;
+        }
+    }
     void ShuffleDeck() {
+
         for (int i = 0; i < deck.Count; i++) {
             int randomIndex = Random.Range(0, deck.Count);
             Card temp = deck[i];
             deck[i] = deck[randomIndex];
             deck[randomIndex] = temp;
         }
+        ResetCardPool();
     }
 
     void DrawInitialHand() {
         hand = new List<Card>();
-        for (int i = 0; i < 7; i++) {
-            DrawCard();
+
+        if (firstGame) {
+            DrawCard(1);
+            DrawCard(14);
+            DrawCard(27);
+            DrawCard(40);
+            DrawCard(15);
+            DrawCard(30);
+            DrawCard(25);
+            firstGame = false;
+        } else {
+            for (int i = 0; i < 7; i++) {
+                DrawCard();
+            }
         }
+
+
     }
 
-    void DrawCard() {
-        if (deck.Count > 0) {
-            Card drawnCard = deck[0];
-            hand.Add(drawnCard);
-            cardPool[drawnCard.Idx] = false; // 更新牌池
-            deck.RemoveAt(0);
+    void DrawCard(int _idx = 0) {
+        if (_idx != 0) {
+            var findIdx = deck.FindIndex(a => a.Idx == _idx);
+            if (findIdx == -1) {
+                Debug.LogError("牌池無此idx的牌: " + _idx);
+                return;
+            }
+            hand.Add(deck[findIdx]);
+            cardPool[deck[findIdx].Idx] = false; // 更新牌池
+            deck.RemoveAt(findIdx);
+        } else {
+            if (deck.Count > 0) {
+                Card drawnCard = deck[0];
+                hand.Add(drawnCard);
+                cardPool[drawnCard.Idx] = false; // 更新牌池
+                deck.RemoveAt(0);
+            }
         }
+
     }
 
 
@@ -274,15 +347,14 @@ public class CardGame : MonoBehaviour {
                 }
             }
         }
-
-        playerPT -= swapCost; // 扣除換牌成本
+        AddPlayerPT(-swapCost);
         swapCount++;
         swapCost = BaseSwapCost + swapCount * SwapCostAdd; // 更新換牌成本
     }
 
     public void CheckRewards() {
         int rewardPoints = CalculateReward();
-        playerPT += rewardPoints;
+        AddPlayerPT(rewardPoints);
         StartNewGame(); // 出牌後重置遊戲
     }
 
@@ -293,6 +365,9 @@ public class CardGame : MonoBehaviour {
         if (IsStraightFlush(hand)) {
             reward = 500;
             CurHandType = HandType.StraightFlush;
+        } else if (IsFourOfAKind(hand)) {
+            reward = 300;
+            CurHandType = HandType.FourOfAKind;
         } else if (IsFullHouse(hand)) {
             reward = 100;
             CurHandType = HandType.FullHouse;
@@ -347,6 +422,10 @@ public class CardGame : MonoBehaviour {
     bool IsThreeOfAKind(List<Card> cards) {
         var groups = cards.GroupBy(card => card.number);
         return groups.Any(group => group.Count() == 3);
+    }
+    bool IsFourOfAKind(List<Card> cards) {
+        var groups = cards.GroupBy(card => card.number);
+        return groups.Any(group => group.Count() == 4);
     }
 
     bool IsFullHouse(List<Card> cards) {

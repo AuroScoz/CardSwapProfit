@@ -1,11 +1,13 @@
-﻿using System;
+﻿using JetBrains.Annotations;
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 public class Simulator : MonoBehaviour {
     private void Start() {
-        int handSize = 5;
-        int batchSize = 100000000; // 每次處理X筆數
+        int handSize = 6;
+        int batchSize = 2000000000; // 每次處理X筆數
 
         // 初始化一副撲克牌
         List<Card> deck = new List<Card>();
@@ -22,17 +24,51 @@ public class Simulator : MonoBehaviour {
         // 開始分段處理生成組合
         DateTime start = DateTime.Now;
         GenerateCombinations(deck, handSize, batchSize, ref combinationCounter, ref straightFlushCounter);
-        Debug.LogErrorFormat("完成花費:{0}秒 共有{1}種組合", (DateTime.Now - start).TotalSeconds, combinationCounter);
+        Debug.LogErrorFormat("完成花費:{0}秒 共考慮{1}種組合", (DateTime.Now - start).TotalSeconds, combinationCounter);
         Debug.LogError("能組成同花順的數量:" + straightFlushCounter);
 
         // 測試手牌是否為同花順
         //List<Card> hand1 = new List<Card> {
-        //    new Card(0, 1), new Card(0, 2), new Card(0, 3), new Card(0, 4), new Card(0, 5)
+        //    new Card(0, 9), new Card(0, 2), new Card(0, 3), new Card(0, 4), new Card(0, 5), new Card(0, 8), new Card(0, 1)
         //};
         //List<Card> hand2 = new List<Card> {
-        //    new Card(0, 10), new Card(0, 11), new Card(0, 12), new Card(0, 13), new Card(0, 1)
+        //    new Card(0, 11), new Card(0, 3), new Card(0, 4), new Card(0, 5), new Card(0, 6), new Card(0, 9), new Card(0, 2)
+        //};
+        //List<Card> hand3 = new List<Card> {
+        //    new Card(0, 12), new Card(0, 4), new Card(0, 5), new Card(0, 6), new Card(0, 7), new Card(0, 10), new Card(0, 3)
+        //};
+        //List<Card> hand4 = new List<Card> {
+        //    new Card(0, 2), new Card(0, 5), new Card(0, 6), new Card(0, 7), new Card(0, 8), new Card(0, 1), new Card(0, 4)
+        //};
+        //List<Card> hand5 = new List<Card> {
+        //    new Card(0, 2), new Card(0, 6), new Card(0, 7), new Card(0, 8), new Card(0, 9), new Card(0, 1), new Card(0, 5)
+        //};
+        //List<Card> hand6 = new List<Card> {
+        //    new Card(0, 3), new Card(0, 7), new Card(0, 8), new Card(0, 9), new Card(0, 10), new Card(0, 1), new Card(0, 6)
+        //};
+        //List<Card> hand7 = new List<Card> {
+        //    new Card(0, 2), new Card(0, 8), new Card(0, 9), new Card(0, 10), new Card(0, 11), new Card(0, 4), new Card(0, 7)
+        //};
+        //List<Card> hand8 = new List<Card> {
+        //    new Card(0, 2), new Card(0, 9), new Card(0, 10), new Card(0, 11), new Card(0, 12), new Card(0, 4), new Card(0, 8)
+        //};
+        //List<Card> hand9 = new List<Card> {
+        //    new Card(0, 6), new Card(0, 10), new Card(0,11), new Card(0, 12), new Card(0, 13), new Card(0, 8), new Card(0, 9)
+        //};
+        //List<Card> hand10 = new List<Card> {
+        //    new Card(0, 6), new Card(0, 11), new Card(0,12), new Card(0, 13), new Card(0, 1), new Card(0, 2), new Card(0, 10)
         //};
 
+        //Debug.LogError("IsStraightFlush1=" + IsStraightFlush(hand1));
+        //Debug.LogError("IsStraightFlush2=" + IsStraightFlush(hand2));
+        //Debug.LogError("IsStraightFlush3=" + IsStraightFlush(hand3));
+        //Debug.LogError("IsStraightFlush4=" + IsStraightFlush(hand4));
+        //Debug.LogError("IsStraightFlush5=" + IsStraightFlush(hand5));
+        //Debug.LogError("IsStraightFlush6=" + IsStraightFlush(hand6));
+        //Debug.LogError("IsStraightFlush7=" + IsStraightFlush(hand7));
+        //Debug.LogError("IsStraightFlush8=" + IsStraightFlush(hand8));
+        //Debug.LogError("IsStraightFlush9=" + IsStraightFlush(hand9));
+        //Debug.LogError("IsStraightFlush10=" + IsStraightFlush(hand10));
     }
 
     static void GenerateCombinations(List<Card> deck, int handSize, int batchSize, ref int combinationCounter, ref int straightFlushCounter) {
@@ -51,13 +87,13 @@ public class Simulator : MonoBehaviour {
 
             combinationCounter++;
             if (IsStraightFlush(hand)) {
-                Debug.Log(string.Join(",", hand));
+                //Debug.Log(string.Join(",", hand));
                 straightFlushCounter++;
             }
 
             // 生成下一組合
             int k = handSize - 1;
-            while (k >= 0 && indices[k] == k + n - handSize) {
+            while (k >= 0 && indices[k] == n - handSize + k) {
                 k--;
             }
 
@@ -71,42 +107,43 @@ public class Simulator : MonoBehaviour {
     }
 
     static bool IsStraightFlush(List<Card> hand) {
-        // 计数排序：统计每种花色的牌的数量
-        int[] counts = new int[4];
+        Dictionary<int, List<Card>> suitCards = new Dictionary<int, List<Card>>();
         foreach (Card card in hand) {
-            counts[card.Suit]++;
+            if (!suitCards.ContainsKey(card.Suit))
+                suitCards.Add(card.Suit, new List<Card>());
+            suitCards[card.Suit].Add(card);
         }
 
-        // 遍历每种花色，检查是否有同花顺
-        for (int suit = 0; suit < 4; suit++) {
-            if (counts[suit] < 5) continue; // 超过5张同花色才考虑同花顺
+        foreach (var cards in suitCards.Values) {
+            if (cards.Count < 5) continue;
 
-            // 计数排序：统计每种牌值的数量
-            int[] valueCounts = new int[14]; // 0 不使用，从1到13代表牌值
-            foreach (Card card in hand) {
-                if (card.Suit == suit) {
-                    valueCounts[card.Value]++;
-                    if (card.Value == 1) { // 如果是 A，则同时视为 14
-                        valueCounts[14]++;
-                    }
-                }
-            }
-
-            // 在每种花色的牌中找出同花顺
-            int straightCount = 0; // 记录连续的牌数
-            for (int value = 1; value <= 13; value++) {
-                if (valueCounts[value] > 0) {
-                    straightCount++;
-                    if (straightCount == 5) return true; // 找到同花顺
-                } else {
-                    straightCount = 0; // 重置连续的牌数
-                }
-            }
+            List<Card> sortedCards = cards.OrderBy(card => card.Value).ToList();
+            if (IsStraight(sortedCards)) return true;
         }
-
-        return false; // 没有找到同花顺
+        return false;
     }
 
+    static bool IsStraight(List<Card> cards) {
+
+        List<int> values = cards.Select(c => c.Value).Distinct().OrderBy(v => v).ToList();
+
+        for (int i = 0; i <= values.Count - 5; i++) {
+            if (values[i + 4] - values[i] == 4) {
+                return true;
+            }
+        }
+
+        if (values.Contains(1) && values.Contains(10) && values.Contains(11) && values.Contains(12) && values.Contains(13)) {
+            return true;
+        }
+
+        return false;
+    }
+    static void ShowCards(List<Card> _cards) {
+        for (int i = 0; i < _cards.Count; i++) {
+            Debug.LogError("點數" + _cards[i].Value);
+        }
+    }
 
     class Card {
         public int Suit { get; private set; }

@@ -6,8 +6,7 @@ using UnityEngine;
 
 public class Simulator : MonoBehaviour {
     private void Start() {
-        int handSize = 6;
-        int batchSize = 2000000000; // 每次處理X筆數
+        int handSize = 7;
 
         // 初始化一副撲克牌
         List<Card> deck = new List<Card>();
@@ -23,71 +22,33 @@ public class Simulator : MonoBehaviour {
 
         // 開始分段處理生成組合
         DateTime start = DateTime.Now;
-        GenerateCombinations(deck, handSize, batchSize, ref combinationCounter, ref straightFlushCounter);
+        GenerateCombinations(deck, handSize, ref combinationCounter, ref straightFlushCounter);
         Debug.LogErrorFormat("完成花費:{0}秒 共考慮{1}種組合", (DateTime.Now - start).TotalSeconds, combinationCounter);
         Debug.LogError("能組成同花順的數量:" + straightFlushCounter);
-
-        // 測試手牌是否為同花順
-        //List<Card> hand1 = new List<Card> {
-        //    new Card(0, 9), new Card(0, 2), new Card(0, 3), new Card(0, 4), new Card(0, 5), new Card(0, 8), new Card(0, 1)
-        //};
-        //List<Card> hand2 = new List<Card> {
-        //    new Card(0, 11), new Card(0, 3), new Card(0, 4), new Card(0, 5), new Card(0, 6), new Card(0, 9), new Card(0, 2)
-        //};
-        //List<Card> hand3 = new List<Card> {
-        //    new Card(0, 12), new Card(0, 4), new Card(0, 5), new Card(0, 6), new Card(0, 7), new Card(0, 10), new Card(0, 3)
-        //};
-        //List<Card> hand4 = new List<Card> {
-        //    new Card(0, 2), new Card(0, 5), new Card(0, 6), new Card(0, 7), new Card(0, 8), new Card(0, 1), new Card(0, 4)
-        //};
-        //List<Card> hand5 = new List<Card> {
-        //    new Card(0, 2), new Card(0, 6), new Card(0, 7), new Card(0, 8), new Card(0, 9), new Card(0, 1), new Card(0, 5)
-        //};
-        //List<Card> hand6 = new List<Card> {
-        //    new Card(0, 3), new Card(0, 7), new Card(0, 8), new Card(0, 9), new Card(0, 10), new Card(0, 1), new Card(0, 6)
-        //};
-        //List<Card> hand7 = new List<Card> {
-        //    new Card(0, 2), new Card(0, 8), new Card(0, 9), new Card(0, 10), new Card(0, 11), new Card(0, 4), new Card(0, 7)
-        //};
-        //List<Card> hand8 = new List<Card> {
-        //    new Card(0, 2), new Card(0, 9), new Card(0, 10), new Card(0, 11), new Card(0, 12), new Card(0, 4), new Card(0, 8)
-        //};
-        //List<Card> hand9 = new List<Card> {
-        //    new Card(0, 6), new Card(0, 10), new Card(0,11), new Card(0, 12), new Card(0, 13), new Card(0, 8), new Card(0, 9)
-        //};
-        //List<Card> hand10 = new List<Card> {
-        //    new Card(0, 6), new Card(0, 11), new Card(0,12), new Card(0, 13), new Card(0, 1), new Card(0, 2), new Card(0, 10)
-        //};
-
-        //Debug.LogError("IsStraightFlush1=" + IsStraightFlush(hand1));
-        //Debug.LogError("IsStraightFlush2=" + IsStraightFlush(hand2));
-        //Debug.LogError("IsStraightFlush3=" + IsStraightFlush(hand3));
-        //Debug.LogError("IsStraightFlush4=" + IsStraightFlush(hand4));
-        //Debug.LogError("IsStraightFlush5=" + IsStraightFlush(hand5));
-        //Debug.LogError("IsStraightFlush6=" + IsStraightFlush(hand6));
-        //Debug.LogError("IsStraightFlush7=" + IsStraightFlush(hand7));
-        //Debug.LogError("IsStraightFlush8=" + IsStraightFlush(hand8));
-        //Debug.LogError("IsStraightFlush9=" + IsStraightFlush(hand9));
-        //Debug.LogError("IsStraightFlush10=" + IsStraightFlush(hand10));
     }
 
-    static void GenerateCombinations(List<Card> deck, int handSize, int batchSize, ref int combinationCounter, ref int straightFlushCounter) {
+    static void GenerateCombinations(List<Card> deck, int handSize, ref int combinationCounter, ref int straightFlushCounter) {
         int n = deck.Count;
         int[] indices = new int[handSize];
 
+        // 初始化索引數組
         for (int i = 0; i < handSize; i++) {
             indices[i] = i;
         }
 
-        while (combinationCounter < batchSize) {
-            List<Card> hand = new List<Card>();
+        while (true) {
+            List<Card> handCards = new List<Card>();
+
+            // 根據當前索引數組生成手牌
             foreach (int index in indices) {
-                hand.Add(deck[index]);
+                handCards.Add(deck[index]);
             }
 
+            // 計數組合次數
             combinationCounter++;
-            if (IsStraightFlush(hand)) {
-                //Debug.Log(string.Join(",", hand));
+            bool isStraightFlush = IsStraightFlush(handCards);
+            if (isStraightFlush) {
+                //ShowCards(handCards);
                 straightFlushCounter++;
             }
 
@@ -97,6 +58,7 @@ public class Simulator : MonoBehaviour {
                 k--;
             }
 
+            // 如果沒有更多組合則退出
             if (k < 0) break;
 
             indices[k]++;
@@ -106,9 +68,11 @@ public class Simulator : MonoBehaviour {
         }
     }
 
-    static bool IsStraightFlush(List<Card> hand) {
+
+    static bool IsStraightFlush(List<Card> hands) {
+        //ShowCards(hands);
         Dictionary<int, List<Card>> suitCards = new Dictionary<int, List<Card>>();
-        foreach (Card card in hand) {
+        foreach (Card card in hands) {
             if (!suitCards.ContainsKey(card.Suit))
                 suitCards.Add(card.Suit, new List<Card>());
             suitCards[card.Suit].Add(card);
@@ -126,23 +90,31 @@ public class Simulator : MonoBehaviour {
     static bool IsStraight(List<Card> cards) {
 
         List<int> values = cards.Select(c => c.Value).Distinct().OrderBy(v => v).ToList();
+        bool isTarget = false;
 
         for (int i = 0; i <= values.Count - 5; i++) {
             if (values[i + 4] - values[i] == 4) {
+                if (isTarget) Debug.LogError("true");
                 return true;
             }
         }
 
+
+
         if (values.Contains(1) && values.Contains(10) && values.Contains(11) && values.Contains(12) && values.Contains(13)) {
+            if (isTarget) Debug.LogError("true");
             return true;
         }
-
+        if (isTarget) Debug.LogError("false");
         return false;
     }
     static void ShowCards(List<Card> _cards) {
+        string s = "點數";
         for (int i = 0; i < _cards.Count; i++) {
-            Debug.LogError("點數" + _cards[i].Value);
+            if (i != 0) s += ",";
+            s += _cards[i].Value;
         }
+        Debug.LogError(s);
     }
 
     class Card {

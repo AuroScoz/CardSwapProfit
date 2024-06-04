@@ -12,8 +12,7 @@ public class CardGame : MonoBehaviour {
     [SerializeField] Text StartText;
     [SerializeField] GameObject StartGO;
     [SerializeField] GameObject PlayingGO;
-    [SerializeField] Image[] HandImgs;
-    [SerializeField] Toggle[] HandToggles;
+    [SerializeField] CardPrefab[] HandPrefabs;
     [SerializeField] Text PlayrPT;
     [SerializeField] Text SwapCost;
     [SerializeField] Text Reward;
@@ -78,31 +77,34 @@ public class CardGame : MonoBehaviour {
     public void OnPlayClick() {
         StartNewGame(); // 開始新遊戲
         GoState(GameState.Playing);
+        ShowHandsMatchEffect();
     }
 
     public void OnSwapClick() {
         List<int> idxs = new List<int>();
-        for (int i = 0; i < HandToggles.Length; i++) {
-            if (HandToggles[i].isOn) {
+        for (int i = 0; i < HandPrefabs.Length; i++) {
+            if (HandPrefabs[i].SelectToggle.isOn) {
                 idxs.Add(i);
             }
-            HandToggles[i].isOn = false;
+            HandPrefabs[i].SelectToggle.isOn = false;
         }
+        if (idxs.Count == 0) return;
         SwapCard(idxs.ToArray());
 
         RefreshHandsUI();
         RefreshBottomUI();
+        ShowHandsMatchEffect();
     }
 
     public void OnConfirmClick() {
-        int gainPT = CalculateReward();
+        int gainPT = hands.GetHandType().GetOdds();
         AddPlayerPT(gainPT);
         GoState(GameState.End);
         RefreshBottomUI();
         PlayRewardVoice();
     }
     void PlayRewardVoice() {
-        switch (CurHandType) {
+        switch (hands.GetHandType()) {
             case HandType.FourOfAKind:
                 MyAudioSource.clip = Resources.Load<AudioClip>("Audios/Annie/Annie Original R 4");
                 MyAudioSource.Play();
@@ -112,6 +114,7 @@ public class CardGame : MonoBehaviour {
     public void OnPlayAgainClick() {
         StartNewGame(); //開始新遊戲
         GoState(GameState.Playing);
+        ShowHandsMatchEffect();
     }
     public void OnCheckCardPoolClick(bool _show) {
         CardPoolGO.SetActive(_show);
@@ -125,29 +128,65 @@ public class CardGame : MonoBehaviour {
     }
 
     void RefreshHandsUI() {
-        for (int i = 0; i < hand.Count; i++) {
-            HandImgs[i].sprite = hand[i].GetSprite();
-            HandToggles[i].SetIsOnWithoutNotify(false);
+        for (int i = 0; i < hands.Count; i++) {
+            HandPrefabs[i].SetImg(hands[i].GetCardSprite());
+            HandPrefabs[i].SelectToggle.SetIsOnWithoutNotify(false);
         }
     }
 
     void RefreshBottomUI() {
         PlayrPT.text = playerPT.ToString();
         SwapCost.text = $"花費:{swapCost}";
-        Reward.text = $"獎勵:{CalculateReward()}";
-        HandTypeText.text = $"目前牌型: {CurHandType.ToStr()}";
+        Reward.text = $"獎勵:{hands.GetHandType().GetOdds()}";
+        HandTypeText.text = $"目前牌型: {hands.GetHandType().ToStr()}";
+    }
+
+    void ShowHandsMatchEffect() {
+        List<int> indices = new List<int>();
+
+        switch (hands.GetHandType()) {
+            case HandType.HighCard:
+                break;
+            case HandType.Pair:
+                indices = hands.GetIsPairIndices();
+                break;
+            case HandType.ThreeOfAKind:
+                indices = hands.GetThreeOfAKindIndices();
+                break;
+            case HandType.Straight:
+                indices = hands.GetStraightIndices();
+                break;
+            case HandType.Flush:
+                indices = hands.GetFlushIndices();
+                break;
+            case HandType.FullHouse:
+                indices = hands.GetFullHouseIndices();
+                break;
+            case HandType.FourOfAKind:
+                indices = hands.GetFourOfAKindIndices();
+                break;
+            case HandType.StraightFlush:
+                indices = hands.GetStraightFlushIndices();
+                break;
+            default:
+                break;
+        }
+
+        for (int i = 0; i < indices.Count; i++) {
+            HandPrefabs[i].PlayMatchEffect();
+        }
+
     }
 
 
     List<Image> poolCardImgs = new List<Image>();
     private List<Card> deck; // 牌池
-    private List<Card> hand; // 玩家手牌
+    private List<Card> hands; // 玩家手牌
     private Dictionary<int, bool> cardPool; // 查看牌池
 
     private int playerPT; // 玩家點數
     private int swapCost; // 換牌成本
     private int swapCount; // 換牌次數
-    private HandType CurHandType;//目前牌型
 
 
 
@@ -187,7 +226,7 @@ public class CardGame : MonoBehaviour {
                 var cover = go.transform.Find("cover").GetComponent<Image>();
                 var img = go.transform.Find("Image").GetComponent<Image>();
                 go.transform.GetComponent<Toggle>().interactable = false;
-                img.sprite = newCard.GetSprite();
+                img.sprite = newCard.GetCardSprite();
                 //var text = go.transform.Find("Text").GetComponent<Text>();
                 //text.text = newCard.ToString();
                 poolCardImgs.Add(cover);
@@ -212,7 +251,7 @@ public class CardGame : MonoBehaviour {
     }
 
     void DrawInitialHand() {
-        hand = new List<Card>();
+        hands = new List<Card>();
 
         if (firstGame) {
             DrawCard(1);
@@ -228,9 +267,10 @@ public class CardGame : MonoBehaviour {
                 DrawCard();
             }
         }
-
-
     }
+
+
+
 
     void DrawCard(int _idx = 0) {
         if (_idx != 0) {
@@ -239,13 +279,13 @@ public class CardGame : MonoBehaviour {
                 Debug.LogError("牌池無此idx的牌: " + _idx);
                 return;
             }
-            hand.Add(deck[findIdx]);
+            hands.Add(deck[findIdx]);
             cardPool[deck[findIdx].Idx] = false; // 更新牌池
             deck.RemoveAt(findIdx);
         } else {
             if (deck.Count > 0) {
                 Card drawnCard = deck[0];
-                hand.Add(drawnCard);
+                hands.Add(drawnCard);
                 cardPool[drawnCard.Idx] = false; // 更新牌池
                 deck.RemoveAt(0);
             }
@@ -269,9 +309,7 @@ public class CardGame : MonoBehaviour {
         for (int i = 0; i < handIdxs.Length; i++) {
             int handIdx = handIdxs[i];
             // 將手牌替換
-            if (handIdx >= 0 && handIdx < hand.Count) {
-                Card oldCard = hand[handIdx];
-
+            if (handIdx >= 0 && handIdx < hands.Count) {
                 // 抽一張新牌
                 if (deck.Count > 0) {
                     Card newCard = deck[0];
@@ -279,7 +317,7 @@ public class CardGame : MonoBehaviour {
                     newCards.Add(newCard);
 
                     // 直接替換手牌中的卡片
-                    hand[handIdx] = newCard;
+                    hands[handIdx] = newCard;
                     cardPool[newCard.Idx] = false; // 更新牌池
                 }
             }
@@ -287,104 +325,6 @@ public class CardGame : MonoBehaviour {
         AddPlayerPT(-swapCost);
         swapCount++;
         swapCost = BaseSwapCost + swapCount * SwapCostAdd; // 更新換牌成本
-    }
-
-    public void CheckRewards() {
-        int rewardPoints = CalculateReward();
-        AddPlayerPT(rewardPoints);
-        StartNewGame(); // 出牌後重置遊戲
-    }
-
-    int CalculateReward() {
-
-        int reward = 0;
-
-        if (IsStraightFlush(hand)) {
-            reward = 500;
-            CurHandType = HandType.StraightFlush;
-        } else if (IsFourOfAKind(hand)) {
-            reward = 300;
-            CurHandType = HandType.FourOfAKind;
-        } else if (IsFullHouse(hand)) {
-            reward = 100;
-            CurHandType = HandType.FullHouse;
-        } else if (IsThreeOfAKind(hand)) {
-            reward = 40;
-            CurHandType = HandType.ThreeOfAKind;
-        } else if (IsStraight(hand)) {
-            reward = 30;
-            CurHandType = HandType.Straight;
-        } else if (IsFlush(hand)) {
-            reward = 20;
-            CurHandType = HandType.Flush;
-        } else if (IsPair(hand)) {
-            reward = 5;
-            CurHandType = HandType.Pair;
-        } else {
-            reward = 0;
-            CurHandType = HandType.HighCard;
-        }
-        return reward;
-    }
-
-    bool IsPair(List<Card> cards) {
-        var groups = cards.GroupBy(card => card.Number);
-        return groups.Any(group => group.Count() == 2);
-    }
-
-    bool IsFlush(List<Card> cards) {
-        var groups = cards.GroupBy(card => card.Suit);
-        return groups.Any(group => group.Count() >= 5);
-    }
-
-    bool IsStraight(List<Card> cards) {
-
-        // 將牌號取出
-        var numbers = cards.Select(card => card.Number).Distinct().OrderBy(n => n).ToList();
-        if (numbers.Contains(1)) {
-            numbers.Add(14); // A也可以作為14
-        }
-
-        // 檢查是否有連續5個數字的牌
-        for (int i = 0; i <= numbers.Count - 5; i++) {
-            if (numbers[i + 4] - numbers[i] == 4) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-
-    bool IsThreeOfAKind(List<Card> cards) {
-        var groups = cards.GroupBy(card => card.Number);
-        return groups.Any(group => group.Count() == 3);
-    }
-    bool IsFourOfAKind(List<Card> cards) {
-        var groups = cards.GroupBy(card => card.Number);
-        return groups.Any(group => group.Count() == 4);
-    }
-
-    bool IsFullHouse(List<Card> cards) {
-        var groups = cards.GroupBy(card => card.Number);
-        bool hasThreeOfAKind = groups.Any(group => group.Count() == 3);
-        bool hasPair = groups.Any(group => group.Count() == 2);
-        return hasThreeOfAKind && hasPair;
-    }
-
-    bool IsStraightFlush(List<Card> cards) {
-        var suitedGroups = cards.GroupBy(card => card.Suit);
-        foreach (var group in suitedGroups) {
-            if (group.Count() >= 5) {
-                var numbers = group.Select(card => card.Number).Distinct().OrderBy(n => n).ToList();
-                for (int i = 0; i < numbers.Count - 4; i++) {
-                    if (numbers[i + 4] - numbers[i] == 4) {
-                        return true;
-                    }
-                }
-            }
-        }
-        return false;
     }
 
     public Dictionary<int, bool> GetCardPool() {

@@ -5,71 +5,8 @@ using UnityEditor.iOS;
 using UnityEngine;
 using UnityEngine.UI;
 
-public enum Suit { Clubs, Diamonds, Hearts, Spades } // 梅花, 方塊, 紅心, 黑桃
-public enum HandType {
-    HighCard,
-    Pair,
-    Flush,
-    Straight,
-    ThreeOfAKind,
-    FullHouse,
-    FourOfAKind,
-    StraightFlush,
-}
-public static class Extends {
-    public static string ToStr(this Suit suit) {
-        switch (suit) {
-            case Suit.Spades:
-                return "黑桃";
-            case Suit.Hearts:
-                return "紅心";
-            case Suit.Diamonds:
-                return "方塊";
-            case Suit.Clubs:
-                return "梅花";
-            default:
-                return "尚未定義";
-        }
-    }
-    public static string ToStr(this HandType suit) {
-        switch (suit) {
-            case HandType.HighCard:
-                return "高牌";
-            case HandType.Pair:
-                return "對子";
-            case HandType.Flush:
-                return "同花";
-            case HandType.Straight:
-                return "順子";
-            case HandType.ThreeOfAKind:
-                return "三條";
-            case HandType.FullHouse:
-                return "葫蘆";
-            case HandType.StraightFlush:
-                return "同花順";
-            default:
-                return "尚未定義";
-        }
-    }
-}
-public class Card {
 
-    public int Idx;//=suit * 13 + number
-    public Suit suit; // 花色
-    public int number; // 數字
 
-    public Card(Suit suit, int number) {
-        this.suit = suit;
-        this.number = number;
-        Idx = (int)suit * 13 + number;
-    }
-    public override string ToString() {
-        return $"{suit.ToStr()}{number}";
-    }
-    public Sprite GetSprite() {
-        return Resources.Load<Sprite>(string.Format("PokerImgs/{0}", Idx));
-    }
-}
 public class CardGame : MonoBehaviour {
 
     [SerializeField] Text StartText;
@@ -242,7 +179,7 @@ public class CardGame : MonoBehaviour {
         cardPool = new Dictionary<int, bool>();
         for (int suit = 0; suit < 4; suit++) {
             for (int number = 1; number <= 13; number++) {
-                var newCard = new Card((Suit)suit, number);
+                var newCard = new Card((SuitType)suit, number);
                 deck.Add(newCard);
                 cardPool[newCard.Idx] = true;
 
@@ -391,19 +328,19 @@ public class CardGame : MonoBehaviour {
     }
 
     bool IsPair(List<Card> cards) {
-        var groups = cards.GroupBy(card => card.number);
+        var groups = cards.GroupBy(card => card.Number);
         return groups.Any(group => group.Count() == 2);
     }
 
     bool IsFlush(List<Card> cards) {
-        var groups = cards.GroupBy(card => card.suit);
+        var groups = cards.GroupBy(card => card.Suit);
         return groups.Any(group => group.Count() >= 5);
     }
 
     bool IsStraight(List<Card> cards) {
 
         // 將牌號取出
-        var numbers = cards.Select(card => card.number).Distinct().OrderBy(n => n).ToList();
+        var numbers = cards.Select(card => card.Number).Distinct().OrderBy(n => n).ToList();
         if (numbers.Contains(1)) {
             numbers.Add(14); // A也可以作為14
         }
@@ -420,26 +357,26 @@ public class CardGame : MonoBehaviour {
 
 
     bool IsThreeOfAKind(List<Card> cards) {
-        var groups = cards.GroupBy(card => card.number);
+        var groups = cards.GroupBy(card => card.Number);
         return groups.Any(group => group.Count() == 3);
     }
     bool IsFourOfAKind(List<Card> cards) {
-        var groups = cards.GroupBy(card => card.number);
+        var groups = cards.GroupBy(card => card.Number);
         return groups.Any(group => group.Count() == 4);
     }
 
     bool IsFullHouse(List<Card> cards) {
-        var groups = cards.GroupBy(card => card.number);
+        var groups = cards.GroupBy(card => card.Number);
         bool hasThreeOfAKind = groups.Any(group => group.Count() == 3);
         bool hasPair = groups.Any(group => group.Count() == 2);
         return hasThreeOfAKind && hasPair;
     }
 
     bool IsStraightFlush(List<Card> cards) {
-        var suitedGroups = cards.GroupBy(card => card.suit);
+        var suitedGroups = cards.GroupBy(card => card.Suit);
         foreach (var group in suitedGroups) {
             if (group.Count() >= 5) {
-                var numbers = group.Select(card => card.number).Distinct().OrderBy(n => n).ToList();
+                var numbers = group.Select(card => card.Number).Distinct().OrderBy(n => n).ToList();
                 for (int i = 0; i < numbers.Count - 4; i++) {
                     if (numbers[i + 4] - numbers[i] == 4) {
                         return true;

@@ -7,50 +7,89 @@ using UnityEngine;
 public class Simulator : MonoBehaviour {
     private void Start() {
         int handSize = 7;
+        int batchSize = 200000000; // 每次處理X筆數
 
         // 初始化一副撲克牌
         List<Card> deck = new List<Card>();
         for (int suit = 0; suit < 4; suit++) {
             for (int value = 1; value <= 13; value++) {
-                deck.Add(new Card(suit, value));
+                deck.Add(new Card((SuitType)suit, value));
             }
         }
 
         // 初始化組合計數器
         int combinationCounter = 0;
-        int straightFlushCounter = 0;
 
         // 開始分段處理生成組合
-        DateTime start = DateTime.Now;
-        GenerateCombinations(deck, handSize, ref combinationCounter, ref straightFlushCounter);
-        Debug.LogErrorFormat("完成花費:{0}秒 共考慮{1}種組合", (DateTime.Now - start).TotalSeconds, combinationCounter);
-        Debug.LogError("能組成同花順的數量:" + straightFlushCounter);
+        //DateTime start = DateTime.Now;
+        //GenerateCombinations(deck, handSize, batchSize, ref combinationCounter, HandType.Pair);
+        //Debug.LogErrorFormat("完成花費:{0}秒 共考慮{1}種組合", (DateTime.Now - start).TotalSeconds, combinationCounter);
     }
 
-    static void GenerateCombinations(List<Card> deck, int handSize, ref int combinationCounter, ref int straightFlushCounter) {
+    static void GenerateCombinations(List<Card> deck, int handSize, int batchSize, ref int combinationCounter, HandType _handType) {
         int n = deck.Count;
         int[] indices = new int[handSize];
+        int handTypeCount = 0;//組合數
 
-        // 初始化索引數組
         for (int i = 0; i < handSize; i++) {
             indices[i] = i;
         }
 
-        while (true) {
-            List<Card> handCards = new List<Card>();
-
-            // 根據當前索引數組生成手牌
+        while (combinationCounter < batchSize) {
+            List<Card> hand = new List<Card>();
             foreach (int index in indices) {
-                handCards.Add(deck[index]);
+                hand.Add(deck[index]);
             }
 
-            // 計數組合次數
             combinationCounter++;
-            bool isStraightFlush = IsStraightFlush(handCards);
-            if (isStraightFlush) {
-                //ShowCards(handCards);
-                straightFlushCounter++;
+            switch (_handType) {
+                case HandType.StraightFlush:
+                    if (hand.IsStraightFlush()) {
+                        //Debug.Log(string.Join(",", hand));
+                        handTypeCount++;
+                    }
+                    break;
+                case HandType.FourOfAKind:
+                    if (hand.IsFourOfAKind()) {
+                        //Debug.Log(string.Join(",", hand));
+                        handTypeCount++;
+                    }
+                    break;
+                case HandType.FullHouse:
+                    if (hand.IsFullHouse()) {
+                        //Debug.Log(string.Join(",", hand));
+                        handTypeCount++;
+                    }
+                    break;
+                case HandType.Flush:
+                    if (hand.IsFlush()) {
+                        //Debug.Log(string.Join(",", hand));
+                        handTypeCount++;
+                    }
+                    break;
+                case HandType.Straight:
+                    if (hand.IsStraight()) {
+                        //Debug.Log(string.Join(",", hand));
+                        handTypeCount++;
+                    }
+                    break;
+                case HandType.ThreeOfAKind:
+                    if (hand.IsThreeOfAKind()) {
+                        //Debug.Log(string.Join(",", hand));
+                        handTypeCount++;
+                    }
+                    break;
+                case HandType.Pair:
+                    if (hand.IsPair()) {
+                        //Debug.Log(string.Join(",", hand));
+                        handTypeCount++;
+                    }
+                    break;
+                case HandType.HighCard:
+                    handTypeCount++;
+                    break;
             }
+
 
             // 生成下一組合
             int k = handSize - 1;
@@ -58,7 +97,6 @@ public class Simulator : MonoBehaviour {
                 k--;
             }
 
-            // 如果沒有更多組合則退出
             if (k < 0) break;
 
             indices[k]++;
@@ -66,69 +104,11 @@ public class Simulator : MonoBehaviour {
                 indices[j] = indices[j - 1] + 1;
             }
         }
+
+        Debug.LogError("牌型組合數:" + handTypeCount);
     }
 
 
-    static bool IsStraightFlush(List<Card> hands) {
-        //ShowCards(hands);
-        Dictionary<int, List<Card>> suitCards = new Dictionary<int, List<Card>>();
-        foreach (Card card in hands) {
-            if (!suitCards.ContainsKey(card.Suit))
-                suitCards.Add(card.Suit, new List<Card>());
-            suitCards[card.Suit].Add(card);
-        }
 
-        foreach (var cards in suitCards.Values) {
-            if (cards.Count < 5) continue;
-
-            List<Card> sortedCards = cards.OrderBy(card => card.Value).ToList();
-            if (IsStraight(sortedCards)) return true;
-        }
-        return false;
-    }
-
-    static bool IsStraight(List<Card> cards) {
-
-        List<int> values = cards.Select(c => c.Value).Distinct().OrderBy(v => v).ToList();
-        bool isTarget = false;
-
-        for (int i = 0; i <= values.Count - 5; i++) {
-            if (values[i + 4] - values[i] == 4) {
-                if (isTarget) Debug.LogError("true");
-                return true;
-            }
-        }
-
-
-
-        if (values.Contains(1) && values.Contains(10) && values.Contains(11) && values.Contains(12) && values.Contains(13)) {
-            if (isTarget) Debug.LogError("true");
-            return true;
-        }
-        if (isTarget) Debug.LogError("false");
-        return false;
-    }
-    static void ShowCards(List<Card> _cards) {
-        string s = "點數";
-        for (int i = 0; i < _cards.Count; i++) {
-            if (i != 0) s += ",";
-            s += _cards[i].Value;
-        }
-        Debug.LogError(s);
-    }
-
-    class Card {
-        public int Suit { get; private set; }
-        public int Value { get; private set; }
-
-        public Card(int suit, int value) {
-            Suit = suit;
-            Value = value;
-        }
-
-        public override string ToString() {
-            return $"數值 {Value} 花色: {Suit}";
-        }
-    }
 }
 

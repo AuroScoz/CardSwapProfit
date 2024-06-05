@@ -233,8 +233,16 @@ public static class CardExtends {
             if (!numberIndices.ContainsKey(card.Number))
                 numberIndices[card.Number] = new List<int>();
             numberIndices[card.Number].Add(i);
-            if (numberIndices[card.Number].Count >= 2)
+
+            if (numberIndices[card.Number].Count >= 2) {
+                //foreach (var key in numberIndices.Keys) {
+                //    for (int j = 0; j < numberIndices[key].Count; j++) {
+                //        Debug.LogErrorFormat("數字{0} 索引{1}", key, numberIndices[key][j]);
+                //    }
+                //}
                 return numberIndices[card.Number].Take(2).ToList();
+            }
+
         }
 
         return new List<int>();

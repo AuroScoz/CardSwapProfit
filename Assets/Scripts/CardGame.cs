@@ -1,3 +1,4 @@
+using Cysharp.Threading.Tasks;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -26,12 +27,18 @@ public class CardGame : MonoBehaviour {
     [SerializeField] Button SwapBtn;
     [SerializeField] Button ConfirmBtn;
     [SerializeField] AudioSource MyAudioSource;
+    [SerializeField] GameObject TipGO;
+    [SerializeField] GameObject LastResultGO;
 
     [SerializeField] int DefaultPlayerPT = 100;
     [SerializeField] int GameCost = 10;
     [SerializeField] int BaseSwapCost = 1;
     [SerializeField] int SwapCostAdd = 1;
 
+    [SerializeField] GameObject RewardGO;
+    [SerializeField] Animator RewardAni;
+    [SerializeField] Text RewardNumberText;
+    [SerializeField] Animator RewardTextAni;
 
 
     bool firstGame = true;
@@ -51,6 +58,9 @@ public class CardGame : MonoBehaviour {
     void GoState(GameState state) {
         switch (state) {
             case GameState.Start:
+                TipGO.SetActive(false);
+                LastResultGO.SetActive(false);
+                RewardGO.SetActive(false);
                 StartGO.SetActive(true);
                 PlayingGO.SetActive(false);
                 PlayAgainBtn.gameObject.SetActive(false);
@@ -58,19 +68,32 @@ public class CardGame : MonoBehaviour {
                 ConfirmBtn.gameObject.SetActive(true);
                 break;
             case GameState.Playing:
+                TipGO.SetActive(true);
+                LastResultGO.SetActive(false);
+                RewardGO.SetActive(false);
                 StartGO.SetActive(false);
                 PlayingGO.SetActive(true);
                 PlayAgainBtn.gameObject.SetActive(false);
                 SwapBtn.gameObject.SetActive(true);
                 ConfirmBtn.gameObject.SetActive(true);
+                SetHandPrefabsCanReaction(true);
                 break;
             case GameState.End:
+                TipGO.SetActive(false);
+                LastResultGO.SetActive(true);
+                RewardGO.SetActive(false);
                 StartGO.SetActive(false);
                 PlayingGO.SetActive(true);
                 PlayAgainBtn.gameObject.SetActive(true);
                 SwapBtn.gameObject.SetActive(false);
                 ConfirmBtn.gameObject.SetActive(false);
+                SetHandPrefabsCanReaction(false);
                 break;
+        }
+    }
+    void SetHandPrefabsCanReaction(bool _interactable) {
+        foreach (var hand in HandPrefabs) {
+            hand.SelectToggle.interactable = _interactable;
         }
     }
 
@@ -97,11 +120,7 @@ public class CardGame : MonoBehaviour {
     }
 
     public void OnConfirmClick() {
-        int gainPT = hands.GetHandType().GetOdds();
-        AddPlayerPT(gainPT);
-        GoState(GameState.End);
-        RefreshBottomUI();
-        PlayRewardVoice();
+        PlayRewardAni();
     }
     void PlayRewardVoice() {
         switch (hands.GetHandType()) {
@@ -173,7 +192,7 @@ public class CardGame : MonoBehaviour {
         }
 
         for (int i = 0; i < indices.Count; i++) {
-            HandPrefabs[i].PlayMatchEffect();
+            HandPrefabs[indices[i]].PlayMatchEffect();
         }
 
     }
@@ -329,5 +348,37 @@ public class CardGame : MonoBehaviour {
 
     public Dictionary<int, bool> GetCardPool() {
         return cardPool;
+    }
+
+    void PlayRewardAni() {
+        PlayRewardVoice();
+        RewardGO.SetActive(true);
+        RewardAni.SetTrigger("Play");
+        RewardNumberText.text = "0";
+    }
+    public void StartPlayRewardNumberAni() {
+        UniTask.Void(async () => {
+            int targetNum = hands.GetHandType().GetOdds();
+            int curNum = 0;
+            int maxAniTime = 500;
+            int delay = 50;
+            int addNum = Mathf.Clamp(Mathf.RoundToInt((float)targetNum / ((float)maxAniTime / (float)delay)), 1, int.MaxValue);
+            while (curNum < targetNum) {
+                curNum += addNum;
+                RewardNumberText.text = curNum.ToString();
+                await UniTask.Delay(delay);
+            }
+            RewardTextAni.SetTrigger("Play");
+            await UniTask.Delay(500);
+            RewardAni.SetTrigger("End");
+        });
+    }
+
+    public void EndRewardAni() {
+        RewardGO.SetActive(false);
+        int gainPT = hands.GetHandType().GetOdds();
+        AddPlayerPT(gainPT);
+        GoState(GameState.End);
+        RefreshBottomUI();
     }
 }

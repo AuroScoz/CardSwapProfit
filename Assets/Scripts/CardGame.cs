@@ -360,7 +360,7 @@ public class CardGame : MonoBehaviour {
         UniTask.Void(async () => {
             int targetNum = hands.GetHandType().GetOdds();
             int curNum = 0;
-            int maxAniTime = 500;
+            int maxAniTime = 1000;
             int delay = 50;
             int addNum = Mathf.Clamp(Mathf.RoundToInt((float)targetNum / ((float)maxAniTime / (float)delay)), 1, int.MaxValue);
             while (curNum < targetNum) {
@@ -369,7 +369,7 @@ public class CardGame : MonoBehaviour {
                 await UniTask.Delay(delay);
             }
             RewardTextAni.SetTrigger("Play");
-            await UniTask.Delay(500);
+            await UniTask.Delay(1000);
             RewardAni.SetTrigger("End");
         });
     }

@@ -4587,7 +4587,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 19852856, guid: 3fff7e4b93cbb9f4c9b9437f7d245f27, type: 3}
       propertyPath: prewarm
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 19852856, guid: 3fff7e4b93cbb9f4c9b9437f7d245f27, type: 3}
       propertyPath: ShapeModule.m_Scale.x
@@ -4627,7 +4627,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 19852856, guid: 3fff7e4b93cbb9f4c9b9437f7d245f27, type: 3}
       propertyPath: EmissionModule.rateOverTime.scalar
-      value: 100
+      value: 200
       objectReference: {fileID: 0}
     - target: {fileID: 19852856, guid: 3fff7e4b93cbb9f4c9b9437f7d245f27, type: 3}
       propertyPath: InitialModule.startLifetime.scalar

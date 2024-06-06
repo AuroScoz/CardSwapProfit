@@ -1,7 +1,10 @@
 using Cysharp.Threading.Tasks;
+using Scoz.Func;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using TMPro.Examples;
 using UnityEditor.iOS;
 using UnityEngine;
 using UnityEngine.UI;
@@ -14,6 +17,7 @@ public class CardGame : MonoBehaviour {
     [SerializeField] GameObject StartGO;
     [SerializeField] GameObject PlayingGO;
     [SerializeField] CardPrefab[] HandPrefabs;
+    [SerializeField] CardPrefab[] RewardHandPrefabs;
     [SerializeField] Text PlayrPT;
     [SerializeField] Text SwapCost;
     [SerializeField] Text Reward;
@@ -120,12 +124,24 @@ public class CardGame : MonoBehaviour {
     }
 
     public void OnConfirmClick() {
-        PlayRewardAni();
+        if (hands.GetHandType() == HandType.FourOfAKind) {
+            PlayRewardVoice();
+            PlayRewardAni();
+        } else {
+            int gainPT = hands.GetHandType().GetOdds();
+            AddPlayerPT(gainPT);
+            RefreshBottomUI();
+            GoState(GameState.End);
+        }
+
+        for (int i = 0; i < RewardHandPrefabs.Length; i++) {
+            RewardHandPrefabs[i].SetImg(hands[i].GetCardSprite());
+        }
     }
     void PlayRewardVoice() {
         switch (hands.GetHandType()) {
             case HandType.FourOfAKind:
-                MyAudioSource.clip = Resources.Load<AudioClip>("Audios/Annie/Annie Original R 4");
+                MyAudioSource.clip = Resources.Load<AudioClip>("Audios/Annie/Annie Original Taunt 2");
                 MyAudioSource.Play();
                 break;
         }
@@ -261,7 +277,7 @@ public class CardGame : MonoBehaviour {
     void ShuffleDeck() {
 
         for (int i = 0; i < deck.Count; i++) {
-            int randomIndex = Random.Range(0, deck.Count);
+            int randomIndex = UnityEngine.Random.Range(0, deck.Count);
             Card temp = deck[i];
             deck[i] = deck[randomIndex];
             deck[randomIndex] = temp;
@@ -351,34 +367,67 @@ public class CardGame : MonoBehaviour {
     }
 
     void PlayRewardAni() {
-        PlayRewardVoice();
         RewardGO.SetActive(true);
         RewardAni.SetTrigger("Play");
         RewardNumberText.text = "0";
     }
+
     public void StartPlayRewardNumberAni() {
         UniTask.Void(async () => {
             int targetNum = hands.GetHandType().GetOdds();
             int curNum = 0;
             int maxAniTime = 1000;
-            int delay = 50;
+            int delay = 20;
             int addNum = Mathf.Clamp(Mathf.RoundToInt((float)targetNum / ((float)maxAniTime / (float)delay)), 1, int.MaxValue);
             while (curNum < targetNum) {
                 curNum += addNum;
                 RewardNumberText.text = curNum.ToString();
                 await UniTask.Delay(delay);
             }
+
             RewardTextAni.SetTrigger("Play");
+            PointRewardEffect.Instance.PlayReward(hands.GetHandType());
+            PostProcessingManager.Instance.SetChromaticAberrationDecayEffect(1f, 1f);
+            PlayPostProcessingEffect(1.5f, 0.3f, 1.5f).Forget();
+
             await UniTask.Delay(1000);
+            GoState(GameState.End);
             RewardAni.SetTrigger("End");
+            EndRewardAni();
         });
+
     }
 
     public void EndRewardAni() {
         RewardGO.SetActive(false);
-        int gainPT = hands.GetHandType().GetOdds();
-        AddPlayerPT(gainPT);
-        GoState(GameState.End);
-        RefreshBottomUI();
+        UniTask.Void(async () => {
+            await UniTask.Delay(1000);
+            int gainPT = hands.GetHandType().GetOdds();
+            AddPlayerPT(gainPT);
+            RefreshBottomUI();
+        });
+
+    }
+
+
+    async UniTaskVoid PlayPostProcessingEffect(float _targetIntensity, float _targetThreshold, float _duration) {
+        var bloom = PostProcessingManager.Instance.GetBloom();
+        if (bloom == null) return;
+        float leftTime = _duration;
+        float interval = 0.04f;
+        float originalIntensity = bloom.intensity.value;
+        float originalThreshold = bloom.threshold.value;
+        float addIntensity = (originalIntensity - _targetIntensity) / (_duration / interval);
+        float addThreshold = (originalThreshold - _targetThreshold) / (_duration / interval);
+        bloom.intensity.value = _targetIntensity;
+        bloom.threshold.value = _targetThreshold;
+        while (leftTime > 0) {
+            await UniTask.Delay(TimeSpan.FromSeconds(interval));
+            bloom.intensity.value += addIntensity;
+            bloom.threshold.value += addThreshold;
+            leftTime -= interval;
+        }
+        bloom.intensity.value = originalIntensity;
+        bloom.threshold.value = originalThreshold;
     }
 }
